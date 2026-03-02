@@ -11,6 +11,23 @@ local function notify(message, level)
   vim.notify(message, level or vim.log.levels.INFO, { title = "projmark" })
 end
 
+local function format_error(err)
+  if err == nil then
+    return "unknown error"
+  end
+  local text = tostring(err):gsub("\n.*", "")
+  return text ~= "" and text or "unknown error"
+end
+
+local function run_vim_cmd(cmd, context)
+  local ok, err = pcall(vim.cmd, cmd)
+  if not ok then
+    notify((context or "command failed") .. ": " .. format_error(err), vim.log.levels.ERROR)
+    return false
+  end
+  return true
+end
+
 local function read_json_file(path)
   local ok, lines = pcall(vim.fn.readfile, path)
   if not ok then
@@ -129,9 +146,9 @@ local function handle_uppercase_mark(mark, command, is_cmd)
     return false
   end
   if is_cmd then
-    vim.cmd(command .. " " .. mark)
+    run_vim_cmd(command .. " " .. mark, "failed to execute command for mark " .. mark)
   else
-    vim.cmd("normal! " .. command .. mark)
+    run_vim_cmd("normal! " .. command .. mark, "failed to execute motion for mark " .. mark)
   end
   return true
 end
@@ -192,7 +209,7 @@ local function goto_project_mark(mark)
     return
   end
   if not is_lowercase_mark(mark) then
-    vim.cmd("normal! '" .. mark)
+    run_vim_cmd("normal! '" .. mark, "failed to jump to mark " .. mark)
     return
   end
 
@@ -211,15 +228,30 @@ local function goto_project_mark(mark)
       return
     end
 
-    vim.cmd("edit " .. vim.fn.fnameescape(file))
+    if not run_vim_cmd("edit " .. vim.fn.fnameescape(file), "failed to open mark file") then
+      return
+    end
 
     local line = tonumber(target.line) or 1
     local col = tonumber(target.col) or 0
     local line_count = vim.api.nvim_buf_line_count(0)
+    if line < 1 then
+      line = 1
+    end
     if line > line_count then
       line = line_count
     end
-    vim.api.nvim_win_set_cursor(0, { line, col })
+    if col < 0 then
+      col = 0
+    end
+    local line_text = vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1] or ""
+    if col > #line_text then
+      col = #line_text
+    end
+    local ok_set, err_set = pcall(vim.api.nvim_win_set_cursor, 0, { line, col })
+    if not ok_set then
+      notify("failed to move cursor: " .. format_error(err_set), vim.log.levels.ERROR)
+    end
   end)
 end
 
