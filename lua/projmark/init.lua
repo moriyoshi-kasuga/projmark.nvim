@@ -282,19 +282,11 @@ end
 function M.setup(opts)
   config = vim.tbl_deep_extend("force", vim.deepcopy(default_config), opts or {})
 
-  local normal = { "n", "o", "x" }
   local map_opts = { noremap = true, silent = true }
 
-  vim.keymap.set(normal, "m", mark_setter, map_opts)
-  vim.keymap.set(normal, "'", mark_jumper, map_opts)
-  vim.keymap.set(normal, "d", function()
-    local char = vim.fn.getcharstr()
-    if char ~= "m" then
-      vim.api.nvim_feedkeys("d" .. char, "n", false)
-      return
-    end
-    mark_deleter()
-  end, map_opts)
+  vim.keymap.set({ "n", "x" }, "m", mark_setter, map_opts)
+  vim.keymap.set({ "n", "x" }, "'", mark_jumper, map_opts)
+  vim.keymap.set("n", "dm", mark_deleter, map_opts)
 
   vim.api.nvim_create_autocmd("VimLeavePre", {
     callback = function()
