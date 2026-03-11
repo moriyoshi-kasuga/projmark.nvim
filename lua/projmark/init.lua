@@ -69,23 +69,15 @@ local function get_lsp_root()
 end
 
 local function get_git_root()
-  local file = vim.fn.expand("%:p")
-  if file == "" then
+  local git_dir = vim.fs.find(".git", { upward = true })[1]
+
+  if git_dir then
+    -- If found, return the directory containing .git
+    return vim.fs.dirname(git_dir)
+  else
+    -- If not found, return nil
     return nil
   end
-  local dir = vim.fn.fnamemodify(file, ":p:h")
-  while dir and dir ~= "" do
-    local git_dir = dir .. "/.git"
-    if vim.fn.isdirectory(git_dir) == 1 then
-      return dir
-    end
-    local parent = vim.fn.fnamemodify(dir, ":h")
-    if parent == dir then
-      break
-    end
-    dir = parent
-  end
-  return nil
 end
 
 local function get_project_root()
